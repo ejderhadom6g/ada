@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sistem: GİZLİ PROTOKOL</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background: #05070a; 
+            color: #00ffcc; font-family: 'Courier New', Courier, monospace;
+            overflow: hidden; touch-action: none; user-select: none; 
+        }
+
+        .hidden { display: none !important; }
+
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px; z-index: 100; pointer-events: none; opacity: 0.7;
+        }
+
+        .tv-turn-on { animation: tvOn 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+        @keyframes tvOn {
+            0% { transform: scale(1, 0.001); filter: brightness(10); }
+            50% { transform: scale(1, 0.001); filter: brightness(10); }
+            100% { transform: scale(1, 1); filter: brightness(1); }
+        }
+
+        .heavy-glitch-bg { animation: hGlitch 0.2s 10 alternate; }
+        @keyframes hGlitch { 0% { filter: invert(0); transform: translate(0,0); } 100% { filter: invert(1); transform: translate(5px,-5px); } }
+
+        button {
+            padding: 20px 40px; font-size: 24px; font-weight: bold;
+            color: #00ffcc; background: rgba(0, 255, 204, 0.05); border: 2px solid #00ffcc;
+            border-radius: 5px; cursor: pointer; box-shadow: 0 0 15px rgba(0, 255, 204, 0.3);
+            transition: all 0.2s; font-family: 'Courier New', Courier, monospace; z-index: 60;
+        }
+        button:hover { background: #00ffcc; color: #05070a; box-shadow: 0 0 30px rgba(0, 255, 204, 0.8); }
+
+        #startScreen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            background: radial-gradient(circle at center, #111a24 0%, #05070a 100%); z-index: 50;
+            transition: opacity 0.3s ease;
+        }
+
+        #terminal {
+            padding: 20px; font-size: 18px; line-height: 1.6;
+            text-shadow: 0 0 8px rgba(0, 255, 204, 0.6); z-index: 10; position: relative;
+        }
+        .warning-text { color: #ff4655; font-weight: bold; margin-top: 15px; text-shadow: 0 0 10px red; }
+
+        #hackSequence { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 5; background: #05070a; }
+
+        .glitch-text {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-weight: bold; color: #ff4655;
+            text-shadow: 5px 5px 15px rgba(255, 70, 85, 0.8);
+            animation: glitch 0.1s infinite; text-align: center; width: 100%;
+        }
+
+        .decode-text {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 2rem; font-weight: bold; color: #00ffcc;
+            text-shadow: 0 0 20px #00ffcc; text-align: center; width: 90%;
+            animation: pulse 1s infinite alternate; line-height: 1.5;
+        }
+
+        .game-boot-text {
+            color: #0077ff; font-size: 2rem; font-weight: bold; text-shadow: 0 0 20px #0077ff;
+            text-align: center; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+        }
+        .countdown-text {
+            color: #ff4655; font-size: 6rem; font-weight: bold; text-shadow: 0 0 30px #ff4655;
+            position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%);
+            animation: pulse 0.5s infinite alternate;
+        }
+
+        @keyframes pulse { from { opacity: 0.6; } to { opacity: 1; text-shadow: 0 0 30px inherit; } }
+        @keyframes glitch {
+            0% { transform: translate(-50%, -50%) skew(0deg); }
+            20% { transform: translate(-52%, -50%) skew(-5deg); }
+            40% { transform: translate(-50%, -48%) skew(5deg); }
+            60% { transform: translate(-48%, -52%) skew(0deg); }
+            80% { transform: translate(-50%, -50%) skew(3deg); }
+            100% { transform: translate(-50%, -50%) skew(0deg); }
+        }
+
+        /* OYUN EKRANI */
+        #gameScreen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle at center, #161625 0%, #05050a 100%); z-index: 20;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        #gameCanvas {
+            border: 3px solid #00ffcc; border-radius: 5px;
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.15), inset 0 0 20px rgba(0, 255, 204, 0.1);
+            background: #0a0a10;
+        }
+        #gameUI {
+            position: absolute; top: 15px; left: 20px; right: 20px;
+            display: flex; justify-content: space-between;
+            font-size: 22px; font-weight: bold; color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace; text-shadow: 0 0 10px #00ffcc;
+        }
+        #joystickContainer {
+            position: absolute; bottom: 40px; right: 40px; width: 120px; height: 120px;
+            background: rgba(0, 255, 204, 0.05); border: 2px dashed rgba(0, 255, 204, 0.4);
+            border-radius: 50%; display: flex; justify-content: center; align-items: center;
+        }
+        #joystickKnob {
+            width: 50px; height: 50px; background: #ff4655; border-radius: 50%;
+            box-shadow: 0 0 15px rgba(255, 70, 85, 0.8); position: absolute; pointer-events: none;
+        }
+
+        /* KAZANMA / BİTİŞ EKRANI */
+        #winSequence {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #05070a; z-index: 40;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        #winTextContainer {
+            font-size: 3rem; color: #ff4655; font-weight: bold; text-shadow: 0 0 20px red;
+            text-align: center; height: 150px; display: flex; align-items: center; justify-content: center;
+        }
+        .next-btn {
+            background: transparent; color: #ff4655; border-color: #ff4655;
+            box-shadow: 0 0 15px rgba(255, 70, 85, 0.3); font-size: 28px; padding: 25px 50px;
+            opacity: 0; transform: scale(0.8); transition: all 1s ease; margin-top: 30px;
+        }
+        .next-btn.visible { opacity: 1; transform: scale(1); }
+        .next-btn:hover { background: #ff4655; color: #05070a; box-shadow: 0 0 30px rgba(255, 70, 85, 0.8); }
+
+        /* KELİME AKIŞ EKRANI */
+        #wordFlowScreen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #05070a; z-index: 60;
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
+        }
+        #confettiCanvas {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 61;
+        }
+        #wordDisplay {
+            font-size: 4rem; font-weight: bold; color: #00ffcc;
+            text-shadow: 0 0 30px #00ffcc, 0 0 60px rgba(0,255,204,0.5);
+            text-align: center; z-index: 65; letter-spacing: 3px;
+            font-family: 'Courier New', Courier, monospace;
+            opacity: 0; transform: scale(0.8);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        #wordDisplay.show {
+            opacity: 1; transform: scale(1);
+        }
+
+        /* FİNAL: TEKLİF EKRANI */
+        #proposalScreen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle at center, #2c0a15 0%, #05070a 100%); z-index: 70;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        }
+        #proposalScreen h1 {
+            color: #ff4655; font-size: 3.5rem; margin-bottom: 50px; text-shadow: 0 0 30px #ff4655;
+        }
+        .prop-buttons {
+            display: flex; gap: 50px; position: relative; width: 100%; max-width: 500px; justify-content: center; height: 100px;
+        }
+        #yesBtn { background: #00ffcc; color: #05070a; border-color: #00ffcc; font-size: 24px; padding: 15px 40px; }
+        #noBtn { background: transparent; color: #ff4655; border-color: #ff4655; font-size: 24px; padding: 15px 40px; position: absolute; }
+
+        /* FİNAL ÇÖKÜŞ & GERİ SAYIM */
+        #crashScreen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000; z-index: 80;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        #crashText {
+            color: #00ffcc; font-size: 2.5rem; text-align: center; margin-bottom: 30px; text-shadow: 0 0 10px #00ffcc;
+        }
+        #countdownNum {
+            color: #ff4655; font-size: 8rem; font-weight: bold; text-shadow: 0 0 40px red;
+            animation: pulse 0.5s infinite alternate;
+        }
+
+        #gameOverScreen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(5, 7, 10, 0.95); z-index: 30;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        #gameOverScreen h1 { color: #ff4655; font-size: 4rem; margin-bottom: 20px; text-shadow: 0 0 20px red; }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+
+    <div id="startScreen"><button id="startBtn" onclick="startSystem()">SİSTEME BAĞLAN</button></div>
+    
+    <div id="terminalContainer" class="hidden"><div id="terminal"></div></div>
+    <div id="hackSequence" class="hidden"></div>
+
+    <div id="gameScreen" class="hidden">
+        <div id="gameUI">
+            <div>CAN: <span id="livesDisplay">❤️❤️❤️</span></div>
+            <div>DÜRÜM: <span id="scoreDisplay">0 / 5</span></div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div id="joystickContainer"><div id="joystickKnob"></div></div>
+    </div>
+
+    <div id="winSequence" class="hidden">
+        <div id="winTextContainer"></div>
+        <button id="nextStageBtn" class="next-btn hidden" onclick="startWordFlow()">ÖĞRENMEK İÇİN TIKLA</button>
+    </div>
+
+    <!-- KELİME AKIŞ EKRANI -->
+    <div id="wordFlowScreen" class="hidden">
+        <canvas id="confettiCanvas"></canvas>
+        <div id="wordDisplay"></div>
+    </div>
+
+    <!-- TEKLİF EKRANI -->
+    <div id="proposalScreen" class="hidden">
+        <h1>EVLENCEZ DEMİ ADACİKİM</h1>
+        <div class="prop-buttons">
+            <button id="yesBtn" onclick="acceptProposal()">Evet seni cok seviyom sensiz nefes bıle alamam</button>
+            <button id="noBtn" onmouseover="dodgeNo()" onclick="dodgeNo()">HAYIR </button>
+        </div>
+    </div>
+
+    <!-- FİNAL ÇÖKÜŞ EKRANI -->
+    <div id="crashScreen" class="hidden">
+        <div id="crashText">ARTIK EVLENIYOZ MUSTAKBEL ESİM ADACIKIMLA <br>Elveda ADACİKİM!</div>
+        <div id="countdownNum">10</div>
+    </div>
+
+    <!-- GAME OVER EKRANI -->
+    <div id="gameOverScreen" class="hidden">
+        <h1>dÜRÜMCÜK adayi yedi</h1>
+        <p style="color: #00ffcc; font-size: 1.5rem; margin-bottom: 40px;">Dürüm Canavarı Ada'yı ham yapti...</p>
+        <button class="retry-btn" onclick="restartGame()">ADAYA YENİ ŞANS</button>
+    </div>
+
+    <script>
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        let isSystemStarted = false;
+
+        let audioCtx;
+        function initAudio() { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+        function playSound(freq, type, duration, vol) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+
+        let musicInterval; let noteIdx = 0;
+        const gameNotes = [220, 0, 220, 330, 220, 0, 196, 220, 440, 0, 330, 0, 293, 330, 0, 0];
+        function startGameMusic() {
+            if(musicInterval) clearInterval(musicInterval); noteIdx = 0;
+            musicInterval = setInterval(() => {
+                let freq = gameNotes[noteIdx];
+                if(freq > 0) playSound(freq, 'square', 0.15, 0.15);
+                noteIdx = (noteIdx + 1) % gameNotes.length;
+            }, 150);
+        }
+        function stopGameMusic() { if(musicInterval) clearInterval(musicInterval); }
+
+        function sfxPowerUp() { playSound(300, 'sine', 0.1, 0.3); setTimeout(()=>playSound(600, 'sine', 0.3, 0.4), 100); }
+        function sfxType() { playSound(150, 'triangle', 0.05, 0.15); }
+        function sfxAdaBlip() { playSound(Math.random() * 500 + 1200, 'sine', 0.03, 0.01); }
+        function sfxHeavyGlitch() { playSound(80, 'square', 1.5, 0.5); playSound(40, 'sawtooth', 1.5, 0.5); }
+        function sfxHit() { playSound(150, 'sawtooth', 0.3, 0.3); }
+
+        let staticNoiseNode = null;
+        function startStaticNoise() {
+            if (!audioCtx) return;
+            const bufferSize = audioCtx.sampleRate * 2;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+            staticNoiseNode = audioCtx.createBufferSource();
+            staticNoiseNode.buffer = buffer; staticNoiseNode.loop = true;
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            staticNoiseNode.connect(gain); gain.connect(audioCtx.destination);
+            staticNoiseNode.start();
+        }
+
+        function stopStaticNoise() {
+            if (staticNoiseNode) {
+                try { staticNoiseNode.stop(); } catch(e){}
+                staticNoiseNode = null;
+            }
+        }
+
+        const terminalContainer = document.getElementById('terminalContainer');
+        const terminal = document.getElementById('terminal');
+        const startBtn = document.getElementById('startBtn');
+        const hackSequence = document.getElementById('hackSequence');
+
+        const bootSequence = [
+            "Sistem başlatılıyor...",
+            "Hedef tanımlandı: ADACIGIM ( müstakbel esim )",
+            "Trip algılayıcı sensörler kalibre ediliyor... (resim at dedi attim trip atmaya basladi)",
+            "Mide hacmi taranıyor... (çorba yedi doydu iskendere yer kalmadı)",
+            "Sevgi veritabanı analiz ediliyor... (ADACIGIM BENI COK SEVIYO)",
+            "Güvenlik duvarı analiz ediliyor...(aramiza kimse giremicegini biliyo evlencez)",
+            "Bağlantı kuruluyor...( adacıgımla birbirimize baglanıyoz )"
+        ];
+
+        async function startSystem() {
+            if (isSystemStarted) return;
+            isSystemStarted = true;
+            initAudio(); 
+            startBtn.style.animation = "glitch 0.2s infinite";
+            sfxPowerUp();
+            
+            await sleep(500);
+            document.getElementById('startScreen').style.opacity = '0';
+            await sleep(400);
+            document.getElementById('startScreen').classList.add('hidden');
+            terminalContainer.classList.remove('hidden');
+            terminalContainer.classList.add('tv-turn-on');
+            
+            await sleep(700);
+            await runBootText();
+        }
+
+        async function runBootText() {
+            for (let line of bootSequence) {
+                let div = document.createElement('div'); div.innerHTML = '[+] '; terminal.appendChild(div);
+                for (let char of line) { div.innerHTML += char; sfxType(); await sleep(Math.random() * 20 + 15); }
+                await sleep(400);
+            }
+
+            await sleep(500); 
+            terminal.innerHTML += `<div class="warning-text">[!] GÜVENLİK İHLALİ TESPİT EDİLDİ [!]</div>`;
+            terminal.innerHTML += `<div class="warning-text">SİSTEM ÇÖKERTİLİYOR...</div>`;
+            
+            let progDiv = document.createElement('div'); progDiv.style.color = '#ff4655'; progDiv.style.marginTop = '10px'; terminal.appendChild(progDiv);
+
+            for (let p = 0; p <= 100; p += Math.floor(Math.random() * 15 + 5)) {
+                if (p > 100) p = 100;
+                progDiv.innerText = '[' + '='.repeat(Math.floor(p/5)) + ' '.repeat(20 - Math.floor(p/5)) + '] ' + p + '%';
+                sfxType(); await sleep(150);
+                if (p === 100) break;
+            }
+
+            await sleep(300);
+            document.body.style.backgroundColor = '#ff4655'; await sleep(50); document.body.style.backgroundColor = '#05070a';
+            sfxHeavyGlitch();
+            terminalContainer.classList.add('hidden');
+            await runHackChaos(); 
+        }
+
+        function createSpam(text, color, isShadow = false) {
+            let div = document.createElement('div'); div.innerText = text;
+            div.style.position = 'absolute'; div.style.left = Math.random() * 100 + 'vw'; div.style.top = Math.random() * 100 + 'vh';
+            div.style.color = color; div.style.fontSize = (Math.random() * 30 + 15) + 'px'; div.style.fontWeight = 'bold';
+            if(isShadow) div.style.textShadow = `0 0 10px ${color}`;
+            hackSequence.appendChild(div); sfxAdaBlip();
+        }
+
+        async function runHackChaos() {
+            hackSequence.classList.remove('hidden');
+
+            let adaInt = setInterval(() => createSpam('ADA', '#00ffcc'), 60);
+            await sleep(2500);
+
+            let qInt = setInterval(() => createSpam('???', '#ff4655'), 80);
+            await sleep(3000);
+
+            clearInterval(adaInt); clearInterval(qInt);
+            hackSequence.innerHTML = ''; 
+            sfxHeavyGlitch(); // ADA ??? öncesi ses istiyordun, eklendi!
+            hackSequence.innerHTML = `<div class="glitch-text" style="font-size: 20rem; top: 45%;">?</div>`;
+            await sleep(2000);
+
+            hackSequence.innerHTML = ''; 
+            sfxHeavyGlitch();
+            hackSequence.innerHTML = `<div class="glitch-text" style="font-size: 8rem;">ADA ???</div>`;
+            await sleep(2000);
+
+            // GEÇİŞ: Uyarıdan önce siber geçiş
+            hackSequence.innerHTML = '';
+            sfxHeavyGlitch();
+            let transitionDiv = document.createElement('div');
+            transitionDiv.className = 'decode-text'; transitionDiv.style.color = '#ff7700';
+            transitionDiv.innerText = "[ SİSTEM PROTOKOLÜ GÜNCELLENİYOR... ]";
+            hackSequence.appendChild(transitionDiv);
+            await sleep(1500);
+
+            // UYARI EKRANI
+            hackSequence.innerHTML = '';
+            let warnDiv = document.createElement('div');
+            warnDiv.className = 'decode-text'; warnDiv.style.color = '#ff4655'; warnDiv.style.textShadow = '0 0 20px #ff4655';
+            hackSequence.appendChild(warnDiv);
+            
+            let warningStr = "ADA DEĞİL, ADACIGIM MUSTAKBEL BİRİCİK ESİM DİCEKSİN ONA !!!";
+            for(let char of warningStr) { warnDiv.innerHTML += char; sfxType(); await sleep(50); }
+            await sleep(2500); 
+
+            // İSTEDİĞİN GEÇİŞ: Adacığımdan önce ekran sarsılıp temizleniyor
+            hackSequence.innerHTML = '';
+            sfxHeavyGlitch();
+            let preAdacigim = document.createElement('div');
+            preAdacigim.className = 'decode-text'; preAdacigim.style.color = '#00ffcc';
+            preAdacigim.innerText = ">> PROTOKOL ONAYLANDI <<";
+            hackSequence.appendChild(preAdacigim);
+            await sleep(1200);
+
+            // ADACIGIM YAZILARI
+            hackSequence.innerHTML = '';
+            sfxPowerUp();
+            let adacigimInt = setInterval(() => createSpam('ADACIGIM', '#00ffcc', true), 50);
+            await sleep(3000);
+            clearInterval(adacigimInt);
+
+            hackSequence.innerHTML = ''; await sleep(500);
+            
+            let simText = document.createElement('div'); simText.className = 'game-boot-text'; hackSequence.appendChild(simText);
+            simText.innerText = '> SİMÜLASYON OLUŞTURULUYOR...'; sfxType(); await sleep(1500);
+            simText.innerText = '> DÜRÜM CANAVARI ADAYI YİCEK'; sfxHeavyGlitch(); await sleep(1500);
+            simText.innerText = '> SİSTEM HAZIR.'; sfxPowerUp(); await sleep(1000);
+            
+            simText.classList.add('hidden');
+            let countText = document.createElement('div'); countText.className = 'countdown-text'; hackSequence.appendChild(countText);
+
+            countText.innerText = '3'; sfxType(); await sleep(1000);
+            countText.innerText = '2'; sfxType(); await sleep(1000);
+            countText.innerText = '1'; sfxType(); await sleep(1000);
+            countText.innerText = 'BAŞLA!'; countText.style.color = '#00ffcc'; sfxPowerUp(); await sleep(800);
+
+            hackSequence.classList.add('hidden');
+            initGame();
+        }
+
+        let canvas, ctx; let pX, pY, pSpeed = 3, pRadius = 12; let eX, eY, eSpeed = 1.35; 
+        let joyVector = { x: 0, y: 0 }; let score = 0, lives = 3; let durums = []; let gameLoop;
+        
+        const mazeGrid = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1], [1,0,0,0,1,0,0,0,0,0,0,0,1], [1,0,1,0,1,0,1,1,1,1,1,0,1],
+            [1,0,1,0,0,0,0,0,0,1,0,0,1], [1,0,1,1,1,1,1,1,0,1,1,0,1], [1,0,0,0,0,0,1,0,0,0,0,0,1],
+            [1,1,1,1,1,0,1,0,1,1,1,1,1], [1,0,0,0,0,0,1,0,0,0,0,0,1], [1,0,1,1,1,1,1,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,1], [1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ]; let tileSize;
+
+        function initGame() {
+            document.getElementById('gameScreen').classList.remove('hidden');
+            canvas = document.getElementById('gameCanvas'); ctx = canvas.getContext('2d');
+            let w = Math.min(window.innerWidth * 0.9, 600); tileSize = w / mazeGrid[0].length;
+            canvas.width = tileSize * mazeGrid[0].length; canvas.height = tileSize * mazeGrid[0].length;
+            resetPositions(); spawnDurums(); setupJoystick();
+            startGameMusic(); 
+            gameLoop = requestAnimationFrame(updateGame);
+        }
+
+        function restartGame() {
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            lives = 3; score = 0; document.getElementById('livesDisplay').innerText = "❤️❤️❤️"; document.getElementById('scoreDisplay').innerText = "0 / 5";
+            resetPositions(); spawnDurums(); startGameMusic();
+            gameLoop = requestAnimationFrame(updateGame);
+        }
+
+        function resetPositions() { pX = tileSize * 1.5; pY = tileSize * 1.5; eX = canvas.width - tileSize * 1.5; eY = canvas.height - tileSize * 1.5; }
+
+        function spawnDurums() {
+            durums = []; let emptyTiles = [];
+            for(let r=1; r<mazeGrid.length-1; r++){
+                for(let c=1; c<mazeGrid[0].length-1; c++){ if(mazeGrid[r][c] === 0) emptyTiles.push({c, r}); }
+            }
+            for(let i=0; i<5; i++){
+                let idx = Math.floor(Math.random() * emptyTiles.length); let tile = emptyTiles.splice(idx, 1)[0];
+                durums.push({x: tile.c * tileSize + tileSize/2, y: tile.r * tileSize + tileSize/2});
+            }
+        }
+
+        function updateGame() {
+            let nextX = pX + joyVector.x * pSpeed; let nextY = pY + joyVector.y * pSpeed;
+            let gridCol = Math.floor(nextX / tileSize); let gridRow = Math.floor(pY / tileSize);
+            if (mazeGrid[gridRow][gridCol] === 0) pX = nextX;
+            gridCol = Math.floor(pX / tileSize); gridRow = Math.floor(nextY / tileSize);
+            if (mazeGrid[gridRow][gridCol] === 0) pY = nextY;
+
+            let dx = pX - eX; let dy = pY - eY; let dist = Math.hypot(dx, dy);
+            if(dist > 0) { eX += (dx / dist) * eSpeed; eY += (dy / dist) * eSpeed; }
+
+            for(let i = durums.length - 1; i >= 0; i--) {
+                if(Math.hypot(pX - durums[i].x, pY - durums[i].y) < pRadius + 15) {
+                    durums.splice(i, 1); score++; document.getElementById('scoreDisplay').innerText = score + " / 5"; sfxType();
+                    
+                    if(score >= 5) {
+                        cancelAnimationFrame(gameLoop); stopGameMusic(); sfxHeavyGlitch(); 
+                        document.body.classList.add('heavy-glitch-bg'); 
+                        setTimeout(() => {
+                            document.body.classList.remove('heavy-glitch-bg');
+                            document.getElementById('gameScreen').classList.add('hidden');
+                            triggerWinSequence(); 
+                        }, 1000);
+                        return;
+                    }
+                }
+            }
+
+            if (dist < pRadius + 15) {
+                lives--; sfxHit();
+                let hearts = ""; for(let i=0; i<lives; i++) hearts += "❤️";
+                document.getElementById('livesDisplay').innerText = hearts || "💀";
+                if(lives <= 0) {
+                    cancelAnimationFrame(gameLoop); stopGameMusic(); sfxHeavyGlitch(); 
+                    document.getElementById('gameOverScreen').classList.remove('hidden');
+                    return;
+                }
+                resetPositions(); 
+            }
+            drawGame(); gameLoop = requestAnimationFrame(updateGame);
+        }
+
+        function drawGame() {
+            ctx.fillStyle = '#0a0a10'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'rgba(0, 255, 204, 0.15)'; ctx.strokeStyle = '#00ffcc'; ctx.lineWidth = 1;
+            for(let r=0; r<mazeGrid.length; r++){
+                for(let c=0; c<mazeGrid[0].length; c++){
+                    if(mazeGrid[r][c] === 1) { ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize); ctx.strokeRect(c * tileSize, r * tileSize, tileSize, tileSize); }
+                }
+            }
+            ctx.font = "20px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            durums.forEach(d => { ctx.fillText("🌯", d.x, d.y); });
+            ctx.font = "24px Arial"; ctx.fillText("👱‍♀️", pX, pY); ctx.fillStyle = '#fff'; ctx.font = "bold 12px Arial"; ctx.fillText("ADA", pX, pY - 18);
+            ctx.font = "28px Arial"; ctx.fillText("🌯", eX, eY);
+            ctx.fillStyle = "red"; ctx.shadowColor = "red"; ctx.shadowBlur = 15;
+            ctx.beginPath(); ctx.arc(eX - 6, eY - 2, 2.5, 0, Math.PI * 2); ctx.arc(eX + 4, eY - 2, 2.5, 0, Math.PI * 2);
+            ctx.fill(); ctx.shadowBlur = 0; 
+        }
+
+        function setupJoystick() {
+            const container = document.getElementById('joystickContainer'); const knob = document.getElementById('joystickKnob');
+            let isDragging = false; let center = { x: 0, y: 0 }; let maxRadius = 35;
+            function startDrag(e) { isDragging = true; let rect = container.getBoundingClientRect(); center.x = rect.left + rect.width / 2; center.y = rect.top + rect.height / 2; moveDrag(e); }
+            function moveDrag(e) {
+                if (!isDragging) return; let clientX = e.touches ? e.touches[0].clientX : e.clientX; let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                let dx = clientX - center.x; let dy = clientY - center.y; let distance = Math.hypot(dx, dy);
+                if (distance > maxRadius) { dx = (dx / distance) * maxRadius; dy = (dy / distance) * maxRadius; }
+                knob.style.transform = `translate(${dx}px, ${dy}px)`; joyVector.x = dx / maxRadius; joyVector.y = dy / maxRadius;
+            }
+            function endDrag() { isDragging = false; knob.style.transform = `translate(0px, 0px)`; joyVector.x = 0; joyVector.y = 0; }
+            container.addEventListener('touchstart', startDrag, {passive: false}); container.addEventListener('touchmove', moveDrag, {passive: false}); container.addEventListener('touchend', endDrag);
+            container.addEventListener('mousedown', startDrag); document.addEventListener('mousemove', moveDrag); document.addEventListener('mouseup', endDrag);
+        }
+
+        async function triggerWinSequence() {
+            const winScreen = document.getElementById('winSequence');
+            const textContainer = document.getElementById('winTextContainer');
+            winScreen.classList.remove('hidden');
+
+            const winMessages = [
+                { text: "ADA KAZANDIN ???", delay: 1500 },
+                { text: "ama...", delay: 2000 },
+                { text: "ama neyi?", delay: 2000 }
+            ];
+
+            await sleep(1000);
+            for (let msg of winMessages) {
+                textContainer.innerText = msg.text; sfxHeavyGlitch();
+                await sleep(msg.delay);
+                textContainer.innerText = "";
+                await sleep(500);
+            }
+
+            sfxPowerUp();
+            let btn = document.getElementById('nextStageBtn');
+            btn.classList.remove('hidden');
+            setTimeout(() => { btn.classList.add('visible'); }, 100);
+        }
+
+        // KONFETİ MOTORU (SADECE BAŞTA PATLAR)
+        let confettiParticles = [];
+        let confettiRunning = false;
+
+        function initConfetti() {
+            const cCanvas = document.getElementById('confettiCanvas');
+            const cCtx = cCanvas.getContext('2d');
+            cCanvas.width = window.innerWidth; cCanvas.height = window.innerHeight;
+            
+            confettiParticles = [];
+            for(let i=0; i<150; i++) {
+                confettiParticles.push({
+                    x: Math.random() * cCanvas.width,
+                    y: Math.random() * cCanvas.height - cCanvas.height,
+                    r: Math.random() * 6 + 4,
+                    dx: Math.random() * 4 - 2,
+                    dy: Math.random() * 5 + 3,
+                    color: ['#ff4655', '#00ffcc', '#ffeb3b', '#e91e63', '#9c27b0'][Math.floor(Math.random()*5)]
+                });
+            }
+
+            confettiRunning = true;
+            function renderConfetti() {
+                if(!confettiRunning) return;
+                cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
+                confettiParticles.forEach(p => {
+                    cCtx.fillStyle = p.color;
+                    cCtx.beginPath(); cCtx.arc(p.x, p.y, p.r, 0, Math.PI*2); cCtx.fill();
+                    p.x += p.dx; p.y += p.dy;
+                    if(p.y > cCanvas.height) p.y = -10;
+                });
+                requestAnimationFrame(renderConfetti);
+            }
+            renderConfetti();
+
+            // Konfetiler sadece başta 3 saniye patlayıp kaybolur
+            setTimeout(() => { confettiRunning = false; cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height); }, 0000);
+        }
+
+        async function startWordFlow() {
+            document.getElementById('winSequence').classList.add('hidden');
+            const flowScreen = document.getElementById('wordFlowScreen');
+            const wordDisplay = document.getElementById('wordDisplay');
+            flowScreen.classList.remove('hidden');
+
+            initConfetti(); // Konfetiler sadece burada patlıyor!
+            sfxPowerUp();
+
+            const wordsToDisplay = [
+                "BENİMLE", "EVLENMEYİ", "KAZANDIN", "EVLENCEZ", "CNM", 
+                "ADACIGIM", "EVLENCEZ", "KORKMA", "SAKIN"
+            ];
+
+            for (let word of wordsToDisplay) {
+                wordDisplay.innerText = word;
+                sfxType();
+
+                // Ekrana pürüzsüz giriş
+                wordDisplay.classList.add('show');
+                await sleep(2000); // 2 saniye ekranda kalır
+
+                // Çıkış geçişi
+                wordDisplay.classList.remove('show');
+                await sleep(500);
+                wordDisplay.innerText = "";
+            }
+
+            flowScreen.classList.add('hidden');
+            showProposalScreen();
+        }
+
+        function showProposalScreen() {
+            sfxPowerUp();
+            document.getElementById('proposalScreen').classList.remove('hidden');
+        }
+
+        const noBtn = document.getElementById('noBtn');
+        let noClicks = 0;
+
+        function dodgeNo() {
+            noClicks++;
+            sfxType();
+            const maxX = window.innerWidth - noBtn.offsetWidth - 50;
+            const maxY = window.innerHeight - noBtn.offsetHeight - 50;
+            const randomX = Math.floor(Math.random() * maxX);
+            const randomY = Math.floor(Math.random() * maxY);
+
+            noBtn.style.position = 'fixed';
+            noBtn.style.left = randomX + 'px';
+            noBtn.style.top = randomY + 'px';
+
+            if(noClicks === 3) noBtn.innerText = "Terbiyesiz ADADADADA";
+            if(noClicks === 6) noBtn.innerText = "ADACİGİM EVLENCEZ ANLA";
+            if(noClicks === 9) noBtn.innerText = "Evlencez cnm ADACIGIM CNM CNM";
+        }
+
+        async function acceptProposal() {
+            document.getElementById('proposalScreen').classList.add('hidden');
+            const crashScreen = document.getElementById('crashScreen');
+            const countdownNum = document.getElementById('countdownNum');
+            crashScreen.classList.remove('hidden');
+
+            startStaticNoise();
+            sfxHeavyGlitch();
+
+            for (let i = 10; i >= 0; i--) {
+                countdownNum.innerText = i;
+                sfxType();
+                if (i > 0) { await sleep(1000); }
+            }
+
+            stopStaticNoise();
+            sfxHeavyGlitch();
+            crashScreen.innerHTML = "<h1 style='color:red; font-size:3rem;'>SİSTEM KAPATILDI.</h1>";
+            
+            await sleep(2000);
+            window.close();
+            document.body.innerHTML = "<div style='background:black; width:100vw; height:100vh; display:flex; justify-content:center; align-items:center; color:red; font-size:2rem;'>[ BAĞLANTI KOPARILDI ]</div>";
+        }
+    </script>
+</body>
+</html>
